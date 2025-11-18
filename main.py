@@ -1,8 +1,10 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List, Dict, Any
 
-app = FastAPI()
+app = FastAPI(title="Webino Solutions API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,13 +14,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class InquiryIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    company: Optional[str] = Field(None, max_length=150)
+    service: Optional[str] = Field(None, description="Requested service category")
+    message: str = Field(..., min_length=10, max_length=2000)
+    budget: Optional[str] = Field(None)
+    timeline: Optional[str] = Field(None)
+
+
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "Webino Solutions API is running"}
+
 
 @app.get("/api/hello")
 def hello():
-    return {"message": "Hello from the backend API!"}
+    return {"message": "Hello from Webino Solutions backend!"}
+
+
+@app.get("/api/services")
+def get_services() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": "web-dev",
+            "title": "Web Design & Development",
+            "description": "Modern, fast, and accessible websites built on React, Next.js, and Tailwind.",
+        },
+        {
+            "id": "ecommerce",
+            "title": "E-commerce Solutions",
+            "description": "Conversion-focused online stores with secure payments and inventory tools.",
+        },
+        {
+            "id": "branding",
+            "title": "Branding & UI/UX",
+            "description": "Cohesive brand systems and delightful interfaces that users love.",
+        },
+        {
+            "id": "seo",
+            "title": "SEO & Performance",
+            "description": "Technical SEO, Core Web Vitals, and ongoing optimization for growth.",
+        },
+    ]
+
+
+@app.post("/api/inquiries")
+def create_inquiry(payload: InquiryIn):
+    # Persist to MongoDB using provided helpers
+    try:
+        from database import create_document
+        collection_name = "inquiry"  # from schemas: Inquiry -> inquiry
+        inserted_id = create_document(collection_name, payload)
+        return {"status": "success", "id": inserted_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/test")
 def test_database():
